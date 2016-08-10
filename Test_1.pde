@@ -1,7 +1,12 @@
 import processing.serial.*;
+import interfascia.*;
 
 Serial myPort;
 int maxLengthOfData = 65;
+int canMatrixSize = 22;
+
+String incommingID;
+String[] dataElements = new String[maxLengthOfData];
 
 //Defining the can signal as a class
 class CanSignal{
@@ -67,7 +72,6 @@ class CanSignal{
     }
     else {
       String[] rawRange = elements[7].split(" _ ");
-      println("loop");
       //printArray(rawRange);
       rangeLow = int(rawRange[0]); 
       rangeHigh = int(rawRange[1]); 
@@ -77,7 +81,10 @@ class CanSignal{
   }
 
 
+//-------------------- Class methods --------------------\\
+
 //getter
+
   public String getID(){return id;}
   public String getSigType(){return sigType;}
   public int getBitPos(){return bitPos;}
@@ -98,14 +105,16 @@ class CanSignal{
     return delta;
   }
 
+
 // ID parser
 
   public boolean checkID(String inID){
    boolean idRight=false; 
    String[] rawID = id.split("x");
+   inID=trim(inID);
    if(inID.equals(rawID[1]))
      idRight=true;
-   return idRight; 
+   return idRight;  //<>//
   }
     
     
@@ -119,21 +128,24 @@ class CanSignal{
   }
 
 //Process value
+
   public String processValue(String[] elements){
-    String outputString = "";
+    StringBuilder outputString = null;
     
-    for (int i;i<elements.length;i++){
-      outputString += elements[i];
+    for (int i=0;i<elements.length;i++){
+      outputString.append(elements[i]);
     }
     
-    return outputString;
+    //text("Current key: " + letter, 50, 70);
+    //text("The String is " + words.length() +  " characters long", 50, 90);    
+    return outputString.toString();
   
   }
 
   
 }
 
-CanSignal[] mySignals = new CanSignal[100];
+CanSignal[] mySignals = new CanSignal[canMatrixSize];
 
 
 ///------------------Main Programm-----------------------\\\
@@ -141,7 +153,7 @@ CanSignal[] mySignals = new CanSignal[100];
 void setup(){
 
  String[] lines = loadStrings("Test.csv");
- printArray(lines);
+ //printArray(lines);
  for (int i=0;i<lines.length;i++){
    try {
         mySignals[i] = new CanSignal(lines[i]);
@@ -150,12 +162,14 @@ void setup(){
    }
 
  }
+  String portName=Serial.list()[1];
+  myPort=new Serial(this,portName,9600);
+  println("Init Completed");
 }
 
 void draw(){
   String val = "";
-  String incommingID;
-  String[] dataElements = new String[maxLengthOfData];
+
   int signalCounter=0;
   int signalLength = 1;
   
@@ -165,12 +179,11 @@ void draw(){
   //        println(mySignals[i].getID());
   //}    
     
-    
   if(myPort.available()>0)
      val=myPort.readStringUntil('\n');
   
  
-  println(val);
+  //println(val);
   if(val!=null)
   {
     String[] valElements;
@@ -181,25 +194,33 @@ void draw(){
    //read the CanID
       incommingID = valElements[1];
       
-  //Search in all signals the first one on this ID     
-      while(!mySignals[signalCounter].checkID(incommingID))
-          signalCounter++;
-       
-     signalLength=mySignals[signalCounter].numberOfBytes();
+  //Search in all signals the first one on this ID  
+      while (!mySignals[signalCounter].checkID(incommingID) && signalCounter < canMatrixSize-1){
+        signalCounter++;
+      }  
+      println(signalCounter);
+      //signalLength=mySignals[signalCounter].numberOfBytes();
      }
        
 //Convert the data in the different packages   
     else if (valElements[0].equals("Message:")){
+     println("read data");
       for(int i=1;i<valElements.length;i++){
           dataElements[i-1] = valElements[i];
       }
-      
 //Process the data
-      
-       
+           
+     String signalVeryRaw = mySignals[signalCounter].processValue(dataElements); 
+     background(0); // Set background to black
+
+  // Draw the letter to the center of the screen
+    textSize(14);
+    text(signalVeryRaw, 50, 50);
+    signalCounter=0;
+
     }
     else
-      print("Unknown format");
+      println("Unknown format");
     
   }
 
